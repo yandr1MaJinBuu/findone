@@ -26,47 +26,53 @@ cron.schedule('* * * * * *', async () => {
     async function updateData() {
 
         // 1. Get the player highscores.
-        const getHighscore = await fetch("http://localhost:3008/api/highscore/players");
+        const getHighscore = await fetch("http://localhost:3008/api/highscore/players?type=1");
         const response = await getHighscore.json();
 
         // 2. Loop the highscores and save them to the database.
         for await (const players of response.players) {
-            console.log(players)
+            console.log(players);
+        for (let i = 1000; i < response.players.length; i++) {
+
             // 3. Collect the current player.
-            const current = await Post.findOne({ id: response.players['id'] });
-            console.log(response.players['id'])
+            const current = await Post.find({ id: response.players[i]['id'] });
+            console.log("findOne PlayerID", response.players[i]['id'])
             // If a user exists, let's update the data instead.
             if (current) {
 
                 // 4. Calculate the difference between the current score and the previous score.
-                const difference = response.score - current.score;
+                const difference = response.players[i]['score'] - current.players['score'];
 
                 // 5. Store the new value and difference.
-                await Post.updateOne({ id: response.players['id'] }, {
-                    $set: {
-                        score: response.players['score'],
-                        difference: difference,
-                    },
-                })
+                await Post.updateOne({ id: response.players[i]['id'] },
+                    console.log("Updated", updateOne),
+                    {
+
+                        $set: {
+                            score: response.players['score'],
+                            difference: difference,
+                        },
+                    })
 
                 // Else, we shall create a new record.
             } else {
 
                 // 4. Create a new record.
                 const newRecord = new Post({
-                    id: response.players['id'],
-                    position: response.players['position'],
-                    score: response.players['score'],
+                    id: response.players[i]['id'],
+                    position: response.players[i]['position'],
+                    score: response.players[i]['score'],
                     difference: 0,
                 });
-
+                console.log("New Record", newRecord)
                 // 5. Save the record.
                 await newRecord.save();
             }
         }
     }
-
+    }
     console.log("Table submitted successfully")
     await updateData();
 
 });
+
