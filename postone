@@ -1,0 +1,71 @@
+
+cron.schedule('* * * * * *', async () => {
+
+    const postSchema = new mongoose.Schema({
+        position: {
+            type: Number,
+            required: false,
+        },
+        id: {
+            type: Number,
+            required: true,
+        },
+        score: {
+            type: Number,
+            required: false,
+        },
+        difference: {
+            type: Number,
+            required: true,
+        },
+    });
+
+    const Post = mongoose.model('testscores', postSchema);
+
+    async function updateData() {
+    
+        // 1. Get the player highscores.
+        const getHighscore = await fetch("http://localhost:3008/api/highscore/players");
+        const response = await getHighscore.json();
+    
+        // 2. Loop the highscores and save them to the database.
+         for (let i = 0; i < response.players.length; i++) {
+    
+            // 3. Collect the current player.
+            const current = await Post.findOne({ id: response.players['position'] });
+            console.log(response.players['position'])
+            // If a user exists, let's update the data instead.
+            if (current) {
+    
+                // 4. Calculate the difference between the current score and the previous score.
+                const difference = response.score - current.score;
+             
+                // 5. Store the new value and difference.
+                await Post.updateOne({ id: response.players[i]['id'] }, {
+                    $set: {
+                        score: response.players[i]['score'],
+                        difference: difference[i]['difference'],
+                    },
+                })
+    
+            // Else, we shall create a new record.
+            } else {
+    
+                // 4. Create a new record.
+                const newRecord = new Post({
+                    id: response.players[i]['id'],
+                    position: response.players[i]['position'],
+                    score: response.players[i]['score'],
+                    difference: 0,
+                });
+    
+                // 5. Save the record.
+                await newRecord.save();
+            }
+        }
+    }
+    
+    console.log("Table submitted successfully")
+    await updateData();
+    
+    });
