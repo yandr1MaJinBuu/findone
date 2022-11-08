@@ -26,17 +26,15 @@ cron.schedule('* * * * * *', async () => {
     async function updateData() {
 
         // 1. Get the player highscores.
-        const getHighscore = await fetch("http://localhost:3008/api/highscore/players?type=1");
+        const getHighscore = await fetch("http://localhost:3008/api/highscore/players");
         const response = await getHighscore.json();
 
         // 2. Loop the highscores and save them to the database.
-        for await (const players of response.players) {
-            console.log(players);
-        for (let i = 1000; i < response.players.length; i++) {
+        for (let i = 0; i < response.players.length; i++) {
 
             // 3. Collect the current player.
-            const current = await Post.find({ id: response.players[i]['id'] });
-            console.log("findOne PlayerID", response.players[i]['id'])
+            const current = await Post.findOne({ id: response.players[i]['id'] });
+            console.log("PlayerID", current)
             // If a user exists, let's update the data instead.
             if (current) {
 
@@ -44,12 +42,11 @@ cron.schedule('* * * * * *', async () => {
                 const difference = response.players[i]['score'] - current.players['score'];
 
                 // 5. Store the new value and difference.
-                await Post.updateOne({ id: response.players[i]['id'] },
-                    console.log("Updated", updateOne),
+            await Post.updateOne({ id: response.players[i]['id'] },
                     {
 
                         $set: {
-                            score: response.players['score'],
+                            score: response.players[i]['score'],
                             difference: difference,
                         },
                     })
@@ -70,9 +67,8 @@ cron.schedule('* * * * * *', async () => {
             }
         }
     }
-    }
+
     console.log("Table submitted successfully")
     await updateData();
 
 });
-
