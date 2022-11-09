@@ -1,8 +1,90 @@
-// Inserts difference score to the database //
+FETCH INFORMATION FROM DATABASE TO FRONTEND
 
-cron.schedule('* * * * * *', async () => {
+const Featured = () => {
+  const [playerName, setPlayerName] = useState([]);
+  const [playerRank, setPlayerRank] = useState([]);
+  const [player, setPlayer] = useState([]);
+  const [perPage, setPerPage] = useState(10);
+  const [size, setSize] = useState(perPage);
+  const [current, setCurrent] = useState(1);
+  const [players, setPlayers] = useState();
+
+  const fetchData = () => {
+    const playerAPI = 'http://localhost:3001/api/highscores';
+    const playerRank = 'http://localhost:3001/api/highscores';
+
+    const getINFOPlayer = axios.get(playerAPI)
+    const getPlayerRank = axios.get(playerRank)
+    axios.all([getINFOPlayer, getPlayerRank]).then(
+      axios.spread((...allData) => {
+        const allDataPlayer = allData[0].data
+        const getPlayerScore = allData[1].data
+        const newPlayer = allDataPlayer?.map(players => {
+          const pr = getPlayerScore.find(rank => players.id === rank.id)
+
+
+          return {
+            name: players.name,
+            position: pr?.position,
+            score: pr?.score,
+            difference: pr?.difference,
+          }
+        })
+
+        setPlayer(newPlayer)
+        setPlayerName(allDataPlayer)
+        setPlayerRank(getPlayerScore)
+
+        console.log(getPlayerScore)
+        console.log(newPlayer)
+      })
+    )
+  }
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+
+  const getData = (current, pageSize) => {
+    // Normally you should get the data from the server
+    return player?.slice((current - 1) * pageSize, current * pageSize);
+  };
+
+  const sortData = fetchData && player.sort(function(a, b) {
+    return a.difference - b.difference;
+  });
+
+  return (
+    <div className="featured">
+      <div className="site-card-wrapper">
+        <span className="title">Top/Flop Of The Day</span>
+        <Divider orientation="left"></Divider>
+        {getData(current, size)
+          .map((player) => {
+            return (
+              <tbody>
+                <tr key={player.max}>
+                  <td>{player.position}</td>
+                  <td>{player.name}</td>
+                  <td>{player.score}</td>
+                  <td>{player.difference}</td>
+                </tr>
+              </tbody>
+            );
+          })}
+      </div>
+    </div>
+  );
+}
+export default Featured;
+
+
+INSERT RECORDS FROM OGAME API TO DATABASE INCLUDING DIFFERENCE OF SCORE
+
+cron.schedule('54 23 * * *', async () => {
 
     const postSchema = new mongoose.Schema({
+
         position: {
             type: Number,
             required: false,
@@ -21,37 +103,39 @@ cron.schedule('* * * * * *', async () => {
         },
     });
 
-    const Post = mongoose.model('testscores', postSchema);
+    const Post = mongoose.model('highscores', postSchema);
 
-    async function updateData() {
-
-        // 1. Get the player highscores.
+    async function getPosts() {
         const getHighscore = await fetch("http://localhost:3008/api/highscore/players");
         const response = await getHighscore.json();
-
-        // 2. Loop the highscores and save them to the database.
         for (let i = 0; i < response.players.length; i++) {
 
+           // 3. Collect the current player.
+           const current = await Post.findOne({ id: response.players[i]['id'] });
+           console.log("PlayerID", current)
+           // If a user exists, let's update the data instead.
+           if (current) {
+
+            // 4. Calculate the difference between the current score and the previous score.
+            const difference = current.score - response.players[i]['score'];
             // 3. Collect the current player.
-            const current = await Post.findOne({ id: response.players[i]['id'] });
-            console.log("PlayerID", current)
-            // If a user exists, let's update the data instead.
-            if (current) {
-
-                // 4. Calculate the difference between the current score and the previous score.
-                const difference = response.players[i]['score'] - current.players['score'];
-
-                // 5. Store the new value and difference.
-            await Post.updateOne({ id: response.players[i]['id'] },
+            try {
+                const update = await Post.updateOne({ id: response.players[i]['id'] },
                     {
 
                         $set: {
                             score: response.players[i]['score'],
                             difference: difference,
                         },
-                    })
-
-                // Else, we shall create a new record.
+                    }, {
+                    upsert: true
+                });
+                console.log('Document updated', update);
+            } catch (err) {
+                console.error(err);
+                throw err;
+            }
+              // Else, we shall create a new record.
             } else {
 
                 // 4. Create a new record.
@@ -67,8 +151,10 @@ cron.schedule('* * * * * *', async () => {
             }
         }
     }
-
     console.log("Table submitted successfully")
-    await updateData();
+
+    await getPosts();
 
 });
+
+
